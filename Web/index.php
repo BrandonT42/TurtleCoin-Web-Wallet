@@ -137,7 +137,7 @@ if (!isset($_SESSION['username']) || empty($_SESSION['username'])) {
                 </div>
                 <div class="col-md-6 ">
                     <h3>Fee</h3>
-                    <input class="btn numberonly text-input disabled " id="sendFee" value="0.10" title="Network transaction fee" readonly />
+                    <input class="btn numberonly text-input " id="sendFee" value="0.10" title="Network transaction fee" />
                 </div>
             </div>
 
@@ -216,7 +216,21 @@ if (!isset($_SESSION['username']) || empty($_SESSION['username'])) {
 		});
 
         $("#sendButton").click(function () {
-            $.post(
+			if (parseFloat($("#sendAmount").val()) < 0.01)
+			{
+				$("#sendStatus").html("Amount must be greated than 0");
+				$("#sendStatus").css("color", "red");
+				if (!$("#sendStatus").is(":visible"))
+					$("#sendStatus").slideDown("slow");
+			}
+			else if (parseFloat($("#sendFee").val()) < 0.1)
+			{
+				$("#sendStatus").html("Fee must be at least 0.1 TRTL");
+				$("#sendStatus").css("color", "red");
+				if (!$("#sendStatus").is(":visible"))
+					$("#sendStatus").slideDown("slow");
+			}
+            else $.post(
                 "sendrequest.php",
                 {
                     method: "sendTransaction",
@@ -241,6 +255,8 @@ if (!isset($_SESSION['username']) || empty($_SESSION['username'])) {
 						$("#sendStatus").css("color", "<?php echo $_SESSION['websitecolor']['highlight']; ?>");
 						if (!$("#sendStatus").is(":visible"))
 							$("#sendStatus").slideDown("slow");
+						$("#sendAmount").val("0.00");
+						$("#sendFee").val("0.10");
 					}
                 }
             );
@@ -285,7 +301,7 @@ if (!isset($_SESSION['username']) || empty($_SESSION['username'])) {
         });
 
         $("input").focusin(function() {
-            if ($(this).val() == "0" || $(this).val() == "0.00" || $(this).val() == "TRTL Address")
+            if ($(this).val() == "0" || $(this).val() == "0.00" || $(this).val() == "0.0" || $(this).val() == "0." || $(this).val() == "TRTL Address")
                 $(this).val("");
         });
 
