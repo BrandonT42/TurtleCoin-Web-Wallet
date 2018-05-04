@@ -16,7 +16,7 @@ define('DB_NAME', 'shellwalletweb');
 require_once "walletd.php";
 
 // Website variables
-define("WEBSITE_TITLE", "Shell Web");
+define("WEBSITE_TITLE", "Web Wallet (TESTNET)");
 $footermessage = array(
 	"Turtles are nature's mobile homes.",
 	"1 TRTL = 1 TRTL",
@@ -60,7 +60,7 @@ if (empty($_SESSION['websitecolor']))
 /*************************************/
 
 // Creates a user with a new address
-function attemptCreate($username, $password, &$username_err, &$password_err)
+function attemptCreate($username, $password, &$username_err, &$password_err, &$confirm_password_err)
 {
 	// Create a connection
 	$mysql = mysqli_connect(DB_SERVER, DB_USERNAME, DB_PASSWORD, DB_NAME);
@@ -76,7 +76,7 @@ function attemptCreate($username, $password, &$username_err, &$password_err)
 		if (mysqli_stmt_execute($statement))
 		{
 			mysqli_stmt_store_result($statement);
-			if (mysqli_stmt_num_rows($statement) == 1) $username_err = "This username is already taken.";
+			if (mysqli_stmt_num_rows($statement) > 0) $username_err = "This username is already taken.";
 		}
 
 		// Failed to reach database
@@ -85,21 +85,22 @@ function attemptCreate($username, $password, &$username_err, &$password_err)
 			$username_err = "Something went wrong, please try again later.";
 			$password_err = "";
 		}
+		
+		// Close statement
+		mysqli_stmt_close($statement);
 	}
-         
-	// Close statement
-	mysqli_stmt_close($statement);
     
 	// Check input errors before inserting in database
 	if (empty($username_err) && empty($password_err) && empty($confirm_password_err))
 	{
 		// Prepare an insert statement
-		if ($statement = mysqli_prepare($mysql, "INSERT INTO users (username, password, address, createdat, lastlogin) VALUES (?, ?, ?, ?, ?)"))
+		if ($statement = mysqli_prepare($mysql, "INSERT INTO users (username, password, uid, address, createdat, lastlogin) VALUES (?, ?, ?, ?, ?, ?)"))
 		{
 			// Bind parameters
-			mysqli_stmt_bind_param($statement, "sssss", $param_username, $param_password, $param_address, $param_createdat, $param_lastlogin);
+			mysqli_stmt_bind_param($statement, "ssssss", $param_username, $param_password, $param_uid, $param_address, $param_createdat, $param_lastlogin);
 			$param_username = $username;
 			$param_password = password_hash($password, PASSWORD_DEFAULT);
+			$param_uid = randomString();
 			$param_address = createAddress();
 			$param_createdat = date("m/d/Y h:i:s a");
 			$param_lastlogin = date("m/d/Y h:i:s a");
@@ -120,10 +121,83 @@ function attemptCreate($username, $password, &$username_err, &$password_err)
 				$username_err = "Something went wrong, please try again later.";
 				$password_err = "";
 			}
+			
+			// Close statement
+			mysqli_stmt_close($statement);
 		}
-         
+	}
+    
+	// Close connection
+	mysqli_close($mysql);
+}
+
+// Creates a user with a redeemed address
+function attemptRedeem($key, $username, $password, &$username_err, &$password_err, &$confirm_password_err)
+{
+	// Create a connection
+	$mysql = mysqli_connect(DB_SERVER, DB_USERNAME, DB_PASSWORD, DB_NAME);
+    
+	// Prepare a select statement
+	if (empty($key_err) && $statement = mysqli_prepare($mysql, "SELECT password FROM users WHERE username = ?"))
+	{
+		// Bind parameters
+		mysqli_stmt_bind_param($statement, "s", $param_username);
+		$param_username = trim($username);
+            
+		// Check if username already exists in database
+		if (mysqli_stmt_execute($statement))
+		{
+			mysqli_stmt_store_result($statement);
+			if (mysqli_stmt_num_rows($statement) > 0) $username_err = "This username is already taken.";
+		}
+
+		// Failed to reach database
+		else
+		{
+			$username_err = "Something went wrong, please try again later.";
+			$password_err = "";
+		}
+		
 		// Close statement
 		mysqli_stmt_close($statement);
+	}
+    
+	// Check input errors before inserting in database
+	if (empty($username_err) && empty($password_err) && empty($confirm_password_err))
+	{
+		// Prepare an update statement
+		if ($statement = mysqli_prepare($mysql, "UPDATE users SET name=?, username=?, password=?, uid=?, createdat=?, lastlogin=? WHERE uid = ? AND (password = null or password = '')"))
+		{
+			// Bind parameters
+			mysqli_stmt_bind_param($statement, "sssssss", $param_name, $param_username, $param_password, $param_uid, $param_createdat, $param_lastlogin, $param_key);
+			$param_name = "";
+			$param_username = $username;
+			$param_password = password_hash($password, PASSWORD_DEFAULT);
+			$param_uid = randomString();
+			$param_createdat = date("m/d/Y h:i:s a");
+			$param_lastlogin = date("m/d/Y h:i:s a");
+			$param_key = $key;
+            
+			// Add user to database
+			if (mysqli_stmt_execute($statement))
+			{
+				$_SESSION["username"] = $username;
+				$_SESSION["address"] = getUserAddress($username);
+				$_SESSION["availablebalance"] = 0.0;
+				$_SESSION["lockedamount"] = 0.0;
+				header("location: index.php");
+			}
+
+			// Failed to reach database or failed to create address
+			else
+			{
+				$username_err = "Something went wrong, please try again later.";
+				$password_err = "";
+			}
+         
+			// Close statement
+			mysqli_stmt_close($statement);
+		}
 	}
     
 	// Close connection
@@ -188,10 +262,10 @@ function attemptLogin($username, $password, &$username_err, &$password_err)
 			$username_err = "Something went wrong, please try again later.";
 			$password_err = "";
 		}
-	}
         
-	// Close statement
-	mysqli_stmt_close($statement);
+		// Close statement
+		mysqli_stmt_close($statement);
+	}
     
 	// Close connection
 	mysqli_close($mysql);
@@ -205,8 +279,8 @@ function updateLastLogin($username)
 	{
 		mysqli_stmt_bind_param($statement, "ss", date('m/d/Y h:i:s a'), $username);
 		mysqli_stmt_execute($statement);
+		mysqli_stmt_close($statement);
 	}
-	mysqli_stmt_close($statement);
 	mysqli_close($mysql);
 }
 
@@ -219,16 +293,16 @@ function updatePassword($username, $password)
 		$hashed_password = password_hash($password, PASSWORD_DEFAULT);
 		mysqli_stmt_bind_param($statement, "ss", $hashed_password, $username);
 		mysqli_stmt_execute($statement);
+		mysqli_stmt_close($statement);
 	}
-	mysqli_stmt_close($statement);
 	mysqli_close($mysql);
 }
 
-// Verifies a user password
-function verifyPassword($username, $password)
+// Gets a user's address'
+function getUserAddress($username)
 {
 	$mysql = mysqli_connect(DB_SERVER, DB_USERNAME, DB_PASSWORD, DB_NAME);
-	if ($statement = mysqli_prepare($mysql, "SELECT username, password, address FROM users WHERE username = ?"))
+	if ($statement = mysqli_prepare($mysql, "SELECT address FROM users WHERE username = ?"))
 	{
 		mysqli_stmt_bind_param($statement, "s", $param_username);
 		$param_username = $username;
@@ -237,7 +311,35 @@ function verifyPassword($username, $password)
 			mysqli_stmt_store_result($statement);
 			if (mysqli_stmt_num_rows($statement) == 1)
 			{
-				mysqli_stmt_bind_result($statement, $username, $hashed_password, $address);
+				mysqli_stmt_bind_result($statement, $address);
+				if (mysqli_stmt_fetch($statement))
+				{
+					mysqli_stmt_close($statement);
+					mysqli_close($mysql);
+					return $address;
+				}
+			}
+		}
+		mysqli_stmt_close($statement);
+	}
+	mysqli_close($mysql);
+	return "";
+}
+
+// Verifies a user password
+function verifyPassword($username, $password)
+{
+	$mysql = mysqli_connect(DB_SERVER, DB_USERNAME, DB_PASSWORD, DB_NAME);
+	if ($statement = mysqli_prepare($mysql, "SELECT password FROM users WHERE username = ?"))
+	{
+		mysqli_stmt_bind_param($statement, "s", $param_username);
+		$param_username = $username;
+		if (mysqli_stmt_execute($statement))
+		{
+			mysqli_stmt_store_result($statement);
+			if (mysqli_stmt_num_rows($statement) == 1)
+			{
+				mysqli_stmt_bind_result($statement, $hashed_password);
 				if (mysqli_stmt_fetch($statement))
 				{
 					if (password_verify($password, $hashed_password))
@@ -249,10 +351,89 @@ function verifyPassword($username, $password)
 				}
 			}
 		}
+		mysqli_stmt_close($statement);
 	}
-	mysqli_stmt_close($statement);
 	mysqli_close($mysql);
 	return false;
+}
+
+// Verifies a user password
+function verifyRedeemKey($key)
+{
+	$mysql = mysqli_connect(DB_SERVER, DB_USERNAME, DB_PASSWORD, DB_NAME);
+	if ($statement = mysqli_prepare($mysql, "SELECT name, address FROM users WHERE uid = ? AND (password = null or password = '') AND (username = null or username = '')"))
+	{
+		mysqli_stmt_bind_param($statement, "s", $param_key);
+		$param_key = $key;
+		if (mysqli_stmt_execute($statement))
+		{
+			mysqli_stmt_store_result($statement);
+			if (mysqli_stmt_num_rows($statement) == 1)
+			{
+				mysqli_stmt_bind_result($statement, $name, $address);
+				if (mysqli_stmt_fetch($statement))
+				{
+					mysqli_stmt_close($statement);
+					mysqli_close($mysql);
+					return array(
+							'name' => $name,
+							'address' => $address
+						);
+				}
+			}
+		}
+		mysqli_stmt_close($statement);
+	}
+	mysqli_close($mysql);
+	return "";
+}
+
+// Creates a redeemable key
+function createRedeem($name, $amount, $fee)
+{
+	// Create a new address
+	$sendtoaddress = createAddress();
+	if ($sendtoaddress == "") return "Failed to create address";
+
+	// Send transaction
+	$result = sendTransaction($sendtoaddress, $_SESSION['address'], $amount, $fee, "");
+	if (empty($result["result"])) return "Failed to send transaction: " . $result["error"]["message"];
+
+	// Add to database
+	$mysql = mysqli_connect(DB_SERVER, DB_USERNAME, DB_PASSWORD, DB_NAME);
+	if ($statement = mysqli_prepare($mysql, "INSERT INTO users (username, password, name, uid, address, createdat) VALUES (?, ?, ?, ?, ?, ?)"))
+	{
+		// Bind parameters
+		mysqli_stmt_bind_param($statement, "ssssss", $param_username, $param_password, $param_name, $param_uid, $param_address, $param_createdat);
+		$param_username = "";
+		$param_password = "";
+		$param_name = $name;
+		$param_uid = randomString();
+		$param_address = $sendtoaddress;
+		$param_createdat = date("m/d/Y h:i:s a");
+            
+		// Add user to database
+		if (mysqli_stmt_execute($statement))
+		{
+			mysqli_stmt_close($statement);
+			mysqli_close($mysql);
+			return $param_uid;
+		}
+
+		// Failed to reach database or failed to create address
+		else
+		{
+			$result = mysqli_stmt_error($statement);
+			mysqli_stmt_close($statement);
+			mysqli_close($mysql);
+			return $result;
+		}
+			
+		// Close statement
+		mysqli_stmt_close($statement);
+	}
+	mysqli_close($mysql);
+	return "Reached end of function";
 }
 
 /*************************************/
@@ -343,7 +524,7 @@ function getBalance($address)
 /*************************************/
 
 // Generates a random string
-function randomString($length = 255, $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
+function randomString($length = 100, $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
 {
     $pieces = [];
     $max = mb_strlen($characters, '8bit') - 1;

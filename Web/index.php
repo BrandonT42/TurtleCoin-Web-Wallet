@@ -127,7 +127,7 @@ if (!isset($_SESSION['username']) || empty($_SESSION['username'])) {
 
             <div class="row space-pad" style="padding: 12px">
                 <h3>Send To</h3>
-                <input class="btn text-input " id="sendToAddress" value="TRTL Address" title="The address you would like to send TRTL to" />
+                <input class="btn text-input " id="sendToAddress" value="TRTL Address or Name" title="Enter the address you'd like to send TRTL to, or enter someone's name to generate a shareable link they can create a wallet with" />
             </div>
 
             <div class="row  ">
@@ -173,13 +173,18 @@ if (!isset($_SESSION['username']) || empty($_SESSION['username'])) {
     <script src="assets/plugins/bootstrap.js"></script>
     <script src="assets/js/custom.js"></script>
     <script>
+		var balance = 0;
         function checkStatus() {
             $.getJSON("sessionstatus.php", function (data) {
                 if (data.sessionStatus == false) location.reload();
+				balance = parseFloat(data.availableBalance.replace(/,/g, ''));
                 $("#availableBalance").html(data.availableBalance);
                 $("#lockedAmount").html(data.lockedAmount);
             });
         }
+		function round(value) {
+		    return Number(Math.round(value+'e0')+'e-0');
+		}
 
         $(document).ready(function () {
 			$("input").tooltip();
@@ -216,14 +221,24 @@ if (!isset($_SESSION['username']) || empty($_SESSION['username'])) {
 		});
 
         $("#sendButton").click(function () {
-			if (parseFloat($("#sendAmount").val()) < 0.01)
+			var requestmethod = "sendTransaction";
+			if ($("#sendToAddress").val().length != 99 || !$("#sendToAddress").val().startsWith("TRTL"))
+				requestmethod = "getKey";
+			if ($("#sendAmount").val() < 0.01)
 			{
 				$("#sendStatus").html("Amount must be greated than 0");
 				$("#sendStatus").css("color", "red");
 				if (!$("#sendStatus").is(":visible"))
 					$("#sendStatus").slideDown("slow");
 			}
-			else if (parseFloat($("#sendFee").val()) < 0.1)
+			else if ($("#sendAmount").val() > balance)
+			{
+				$("#sendStatus").html("Not enough balance");
+				$("#sendStatus").css("color", "red");
+				if (!$("#sendStatus").is(":visible"))
+					$("#sendStatus").slideDown("slow");
+			}
+			else if ($("#sendFee") < 0.1)
 			{
 				$("#sendStatus").html("Fee must be at least 0.1 TRTL");
 				$("#sendStatus").css("color", "red");
@@ -233,10 +248,10 @@ if (!isset($_SESSION['username']) || empty($_SESSION['username'])) {
             else $.post(
                 "sendrequest.php",
                 {
-                    method: "sendTransaction",
+                    method: requestmethod,
                     address: $("#sendToAddress").val(),
-                    amount: $("#sendAmount").val() * 100,
-                    fee: $("#sendFee").val() * 100,
+                    amount: round($("#sendAmount").val() * 100),
+                    fee: round($("#sendFee").val() * 100),
                     paymentid: $("#sendPaymentId").val()
                 },
                 function (data) {
@@ -248,11 +263,37 @@ if (!isset($_SESSION['username']) || empty($_SESSION['username'])) {
 						if (!$("#sendStatus").is(":visible"))
 							$("#sendStatus").slideDown("slow");
 					}
-                    else
+                    else if (data.result != null)
 					{
 						$("#sendStatus").html("Success! TX: <a class='tx-link' href='http://turtle-block.com/?hash=" + data.result.transactionHash +
 							"#blockchain_transaction'  target='_blank'>" + data.result.transactionHash + "</a>");
 						$("#sendStatus").css("color", "<?php echo $_SESSION['websitecolor']['highlight']; ?>");
+						if (!$("#sendStatus").is(":visible"))
+							$("#sendStatus").slideDown("slow");
+						$("#sendAmount").val("0.00");
+						$("#sendFee").val("0.10");
+					}
+                    else if (data.key != null)
+					{
+						$("#sendStatus").html("Success!<br/><a class='tx-link key-address' title='Click to copy to clipboard'>" +
+							document.URL.substr(0,document.URL.lastIndexOf('/')) + "/redeem.php?key=" + data.key + "</a>");
+						$("#sendStatus").css("color", "<?php echo $_SESSION['websitecolor']['highlight']; ?>");
+						$(".key-address").tooltip();
+						$(".key-address").click(function() {
+							$(this).animate({
+									color: "#ffffff"
+								}, 200);
+							document.getSelection().removeAllRanges();
+							var $temp = $("<input>");
+							$("body").append($temp);
+							$temp.val($(this).html()).select();
+							document.execCommand("copy");
+							$temp.remove();
+							document.getSelection().removeAllRanges();
+							$(this).animate({
+									color: "#<?php echo $_SESSION['websitecolor']['highlight']; ?>"
+								}, 400);
+						});
 						if (!$("#sendStatus").is(":visible"))
 							$("#sendStatus").slideDown("slow");
 						$("#sendAmount").val("0.00");
@@ -301,7 +342,7 @@ if (!isset($_SESSION['username']) || empty($_SESSION['username'])) {
         });
 
         $("input").focusin(function() {
-            if ($(this).val() == "0" || $(this).val() == "0.00" || $(this).val() == "0.0" || $(this).val() == "0." || $(this).val() == "TRTL Address")
+            if ($(this).val() == "0" || $(this).val() == "0.00" || $(this).val() == "0.0" || $(this).val() == "0." || $(this).val() == "TRTL Address or Name")
                 $(this).val("");
         });
 
@@ -312,7 +353,7 @@ if (!isset($_SESSION['username']) || empty($_SESSION['username'])) {
 
         $("#sendToAddress").focusout(function () {
             if ($(this).val() == "")
-                $(this).val("TRTL Address");
+                $(this).val("TRTL Address or Name");
         });
     </script>
 </body>

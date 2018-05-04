@@ -23,7 +23,7 @@ else
 		if ($_POST["type"] == "login")
 		{
 			// Make sure username and password aren't blank
-			if (empty(trim($_POST["username"]))) $login_username_err = "Please enter a username.";
+			if (empty(trim($_POST["username"])) || $_POST["username"] == "Username") $login_username_err = "Please enter a username.";
 			else $login_username = $_POST["username"];
 			if (empty(trim($_POST["password"]))) $login_password_err = "Please enter your password.";
 			else $login_password = $_POST["password"];
@@ -33,14 +33,15 @@ else
 			elseif (!empty(trim($login_password)) && strlen(trim($login_password)) > 200) $login_password_err = "Password is too long.";
 
 			// Attempt a login
-			else attemptLogin(trim($login_username), trim($login_password), $login_username_err, $login_password_err);
+			elseif (empty($login_username_err) && empty($login_password_err))
+				attemptLogin(trim($login_username), trim($login_password), $login_username_err, $login_password_err);
 		}
 		
 		// Creating a new account
 		elseif ($_POST["type"] == "create")
 		{
 			// Make sure username and password aren't blank
-			if (empty(trim($_POST["username"]))) $create_username_err = "Please enter a username.";
+			if (empty(trim($_POST["username"])) || $_POST["username"] == "Username") $create_username_err = "Please enter a username.";
 			else $create_username = $_POST["username"];
 			if (empty(trim($_POST["password"]))) $create_password_err = "Please enter a Password.";
 			else $create_password = $_POST["password"];
@@ -56,7 +57,8 @@ else
 			elseif ($create_password != $confirm_password) $confirm_password_err = "Passwords do not match.";
 
 			// Attempt to create a new user
-			else attemptCreate(trim($create_username), trim($create_password), $create_username_err, $create_password_err);
+			elseif (empty($create_username_err) && empty($create_password_err) && empty($confirm_password_err))
+				attemptCreate(trim($create_username), trim($create_password), $create_username_err, $create_password_err, $confirm_password_err);
 		}
 	}
 }
@@ -178,17 +180,6 @@ else
         </div>
     </section>
     <!--End Create Section-->
-
-    <!--footer Section -->
-    <div class="for-full-back" id="footer">
-		<div class="text-center">
-			<?php
-				shuffle($footermessage);
-				echo $footermessage[0];
-			?>
-		</div>
-    </div>
-    <!--End footer Section -->
 
     <script src="assets/plugins/jquery-1.10.2.js"></script>
     <script src="assets/plugins/jquery-ui.min.js"></script>

@@ -182,17 +182,6 @@ else
     </section>
     <!-- End Password Section -->
 
-    <!--footer Section -->
-    <div class="for-full-back" id="footer">
-		<div class="text-center">
-			<?php
-				shuffle($footermessage);
-				echo $footermessage[0];
-			?>
-		</div>
-    </div>
-    <!--End footer Section -->
-
     <script src="assets/plugins/jquery-1.10.2.js"></script>
     <script src="assets/plugins/jquery-ui.min.js"></script>
     <script src="assets/plugins/bootstrap.js"></script>
