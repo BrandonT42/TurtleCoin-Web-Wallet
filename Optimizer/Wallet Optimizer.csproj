@@ -7,7 +7,7 @@
     <ProjectGuid>{FCECEA06-6028-47B1-9603-38A53E952687}</ProjectGuid>
     <OutputType>Exe</OutputType>
     <RootNamespace>Wallet_Optimizer</RootNamespace>
-    <AssemblyName>Wallet Optimizer</AssemblyName>
+    <AssemblyName>wallet-optimizer</AssemblyName>
     <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>

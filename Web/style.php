@@ -200,6 +200,19 @@ input:checked + .slider:before {
 .address-blob::-moz-selection {
     background: transparent;
 }
+.verifykey {
+    color: red;
+    margin-top: -20px;
+    margin-bottom: -20px;
+    font-size: 20px !important;
+    word-wrap: break-word;
+}
+.verifykey::selection {
+  background: #ffffff;
+}
+.verifykey::-moz-selection {
+  background: #ffffff;
+}
 
 .help-block {
     color: red;

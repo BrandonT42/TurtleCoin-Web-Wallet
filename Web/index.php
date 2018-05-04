@@ -5,6 +5,10 @@ if (!isset($_SESSION['username']) || empty($_SESSION['username'])) {
 	header("location: login.php");
 	exit;
 }
+elseif (!isset($_SESSION['verified']) || $_SESSION['verified'] != true) {
+	header("location: verify.php");
+	exit;
+}
 ?>
 <!DOCTYPE html>
 <!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
@@ -177,13 +181,13 @@ if (!isset($_SESSION['username']) || empty($_SESSION['username'])) {
         function checkStatus() {
             $.getJSON("sessionstatus.php", function (data) {
                 if (data.sessionStatus == false) location.reload();
-				balance = parseFloat(data.availableBalance.replace(/,/g, ''));
+				balance = round(data.availableBalance.replace(/,/g, ''), 2);
                 $("#availableBalance").html(data.availableBalance);
                 $("#lockedAmount").html(data.lockedAmount);
             });
         }
-		function round(value) {
-		    return Number(Math.round(value+'e0')+'e-0');
+		function round(value, decimals = 0) {
+		    return Number(Math.round(value+'e'+decimals)+'e-'+decimals);
 		}
 
         $(document).ready(function () {
@@ -231,21 +235,21 @@ if (!isset($_SESSION['username']) || empty($_SESSION['username'])) {
 				if (!$("#sendStatus").is(":visible"))
 					$("#sendStatus").slideDown("slow");
 			}
-			else if ($("#sendAmount").val() < 0.01)
+			else if (round($("#sendAmount").val(), 2) < 0.1)
 			{
-				$("#sendStatus").html("Amount must be greated than 0");
+				$("#sendStatus").html("Amount must be greated than 0.1");
 				$("#sendStatus").css("color", "red");
 				if (!$("#sendStatus").is(":visible"))
 					$("#sendStatus").slideDown("slow");
 			}
-			else if ($("#sendAmount").val() > balance)
+			else if (round(+$("#sendAmount").val() + +$("#sendFee").val(), 2) > balance)
 			{
 				$("#sendStatus").html("Not enough balance");
 				$("#sendStatus").css("color", "red");
 				if (!$("#sendStatus").is(":visible"))
 					$("#sendStatus").slideDown("slow");
 			}
-			else if ($("#sendFee") < 0.1)
+			else if (round($("#sendFee").val(), 2) < 0.1)
 			{
 				$("#sendStatus").html("Fee must be at least 0.1 TRTL");
 				$("#sendStatus").css("color", "red");
@@ -272,7 +276,7 @@ if (!isset($_SESSION['username']) || empty($_SESSION['username'])) {
 					}
                     else if (data.result != null)
 					{
-						$("#sendStatus").html("Success! TX: <a class='tx-link' href='http://turtle-block.com/?hash=" + data.result.transactionHash +
+						$("#sendStatus").html("Success! TX: <a class='tx-link' href='<?php echo BLOCK_EXPLORER; ?>" + data.result.transactionHash +
 							"#blockchain_transaction'  target='_blank'>" + data.result.transactionHash + "</a>");
 						$("#sendStatus").css("color", "<?php echo $_SESSION['websitecolor']['highlight']; ?>");
 						if (!$("#sendStatus").is(":visible"))

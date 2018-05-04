@@ -13,8 +13,9 @@ else
 	// Define variables and initialize with empty values
 	$login_username = $create_username = "Username";
 	$login_password = "Password";
-	$create_password = $confirm_password = "";
+	$create_password = $confirm_password = $confirm_login_password = $confirm_login_password_err = $recovery_key = $recovery_key_err = "";
 	$login_username_err = $login_password_err = $create_username_err = $create_password_err = $confirm_password_err = "";
+	$check = "";
  
 	// Processing form data when form is submitted
 	if ($_SERVER["REQUEST_METHOD"] == "POST")
@@ -23,42 +24,82 @@ else
 		if ($_POST["type"] == "login")
 		{
 			// Make sure username and password aren't blank
-			if (empty(trim($_POST["username"])) || $_POST["username"] == "Username") $login_username_err = "Please enter a username.";
-			else $login_username = $_POST["username"];
+			if (empty(trim($_POST["username"])) || trim($_POST["username"]) == "Username") $login_username_err = "Please enter a username.";
+			else $login_username = trim($_POST["username"]);
 			if (empty(trim($_POST["password"]))) $login_password_err = "Please enter your password.";
-			else $login_password = $_POST["password"];
+			else $login_password = trim($_POST["password"]);
 
 			// Check username and password length
-			if (!empty(trim($login_username)) && strlen(trim($login_username)) > 30) $login_username_err = "Username is too long.";
-			elseif (!empty(trim($login_password)) && strlen(trim($login_password)) > 200) $login_password_err = "Password is too long.";
+			if (!empty($login_username) && strlen($login_username) > 30) $login_username_err = "Username is too long.";
+			elseif (!empty($login_password) && strlen($login_password) > 200) $login_password_err = "Password is too long.";
 
 			// Attempt a login
 			elseif (empty($login_username_err) && empty($login_password_err))
-				attemptLogin(trim($login_username), trim($login_password), $login_username_err, $login_password_err);
+				attemptLogin($login_username, $login_password, $login_username_err, $login_password_err);
+			if ($login_password_err == "Password is incorrect.") $check = "badpassword";
 		}
 		
 		// Creating a new account
 		elseif ($_POST["type"] == "create")
 		{
 			// Make sure username and password aren't blank
-			if (empty(trim($_POST["username"])) || $_POST["username"] == "Username") $create_username_err = "Please enter a username.";
-			else $create_username = $_POST["username"];
+			if (empty(trim($_POST["username"])) || trim($_POST["username"]) == "Username") $create_username_err = "Please enter a username.";
+			else $create_username = trim($_POST["username"]);
 			if (empty(trim($_POST["password"]))) $create_password_err = "Please enter a Password.";
-			else $create_password = $_POST["password"];
+			else $create_password = trim($_POST["password"]);
 			if (empty(trim($_POST["confirm_password"]))) $confirm_password_err = "Please confirm your password.";
-			else $confirm_password = $_POST["confirm_password"];
+			else $confirm_password = trim($_POST["confirm_password"]);
 
 			// Check username and password length
-			if (!empty(trim($create_username)) && strlen(trim($create_username)) > 30) $create_username_err = "Username is too long.";
-			elseif (!empty(trim($create_password)) && strlen(trim($create_password)) < 8) $create_password_err = "Password must be at least 8 characters long.";
-			elseif (!empty(trim($create_password)) && strlen(trim($create_password)) > 200) $create_password_err = "Password is too long.";
+			if (!empty($create_username) && strlen($create_username) > 30) $create_username_err = "Username is too long.";
+			elseif (!empty($create_password) && strlen($create_password) < 8) $create_password_err = "Password must be at least 8 characters long.";
+			elseif (!empty($create_password) && strlen($create_password) > 200) $create_password_err = "Password is too long.";
 
 			// Check that passwords match
 			elseif ($create_password != $confirm_password) $confirm_password_err = "Passwords do not match.";
 
 			// Attempt to create a new user
 			elseif (empty($create_username_err) && empty($create_password_err) && empty($confirm_password_err))
-				attemptCreate(trim($create_username), trim($create_password), $create_username_err, $create_password_err, $confirm_password_err);
+				attemptCreate($create_username, $create_password, $create_username_err, $create_password_err, $confirm_password_err);
+		}
+
+		// Reseting a password
+		elseif ($_POST['type'] == 'recovery')
+		{
+			$check = "recovery";
+
+			// Make sure username and password aren't blank
+			if (empty(trim($_POST["username"])) || trim($_POST["username"]) == "Username") $login_username_err = "Please enter a username.";
+			else $login_username = trim($_POST["username"]);
+			if (empty(trim($_POST["recoverykey"]))) $recovery_key_err = "Please enter your recovery key.";
+			else $recovery_key = trim($_POST["recoverykey"]);
+			if (empty(trim($_POST["password"]))) $login_password_err = "Please enter a Password.";
+			else $login_password = trim($_POST["password"]);
+			if (empty(trim($_POST["confirm_password"]))) $confirm_login_password_err = "Please confirm your password.";
+			else $confirm_login_password = trim($_POST["confirm_password"]);
+
+			// Check username and password length
+			if (!empty($login_username) && strlen($login_username) > 30) $login_username_err = "Username is too long.";
+			elseif (!empty($login_password) && strlen($login_password) < 8) $login_password_err = "Password must be at least 8 characters long.";
+			elseif (!empty($login_password) && strlen($login_password) > 200) $login_password_err = "Password is too long.";
+
+			// Check that passwords match
+			elseif ($login_password != $confirm_login_password) $confirm_login_password_err = "Passwords do not match.";
+
+			// Attempt to update password and login
+			elseif (empty($login_username_err) && empty($login_password_err) && empty($confirm_login_password_err))
+			{
+				// Check if user exists
+				if (verifyRecoveryKey($login_username, $recovery_key))
+				{
+					// Update password
+					updatePassword($login_username, $login_password);
+
+					// Login
+					attemptLogin($login_username, $login_password, $errone, $errtwo);
+				}
+				else $recovery_key_err = "Invalid recovery key.";
+			}
 		}
 	}
 }
@@ -118,19 +159,29 @@ else
             </div>
 
 			<form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post" id="loginform">
-			<input name="type" value="login" style="display: none;" />
+			<input name="type" value="login" style="display: none;" id="logintype" />
             <div class="row space-pad" style="padding: 12px">
                 <h3>Username:</h3>
                 <input class="btn text-input " id="loginusername" name="username" value="<?php echo $login_username; ?>" title="Please enter your username" />
                 <span class="help-block"><?php echo $login_username_err; ?></span>
             </div>
+            <div class="row space-pad" style="padding: 12px; display: none;" id="recoverykeyprompt">
+                <h3>Recovery Key:</h3>
+                <input class="btn text-input " id="recoverykey" name="recoverykey" value="<?php echo $recovery_key; ?>" title="Please enter your password recovery key" type="password" />
+                <span class="help-block" id="recoveryerror"><?php echo $recovery_key_err; ?></span>
+            </div>
             <div class="row space-pad" style="padding: 12px">
-                <h3>Password:</h3>
+                <h3 id="passwordlabel">Password:</h3>
                 <input class="btn text-input " id="loginpassword" name="password" value="<?php echo $login_password; ?>" title="Please enter your password" type="password" />
-                <span class="help-block"><?php echo $login_password_err; ?></span>
+                <span class="help-block" id="loginpassworderror"><?php echo $login_password_err; ?></span>
+            </div>
+            <div class="row space-pad" style="padding: 12px; display: none;" id="loginpasswordprompt">
+                <h3>Confirm Password:</h3>
+                <input class="btn text-input " id="confirmloginpassword" name="confirm_password" value="<?php echo $confirm_login_password; ?>" title="You must confirm your new password" type="password" />
+                <span class="help-block confirm-login-password"><?php echo $confirm_login_password_err; ?></span>
             </div>
             <div class="row " style="margin-bottom: 24px"></div>
-			<div class="row text-center alert-message"></div>
+			<div class="row text-center alert-message" id="loginStatus"></div>
             <div class="row  text-center">
                 <a id="loginButton" class="btn btn-primary" style="width: 250px"><h5>Login</h5></a>
             </div>
@@ -186,8 +237,18 @@ else
     <script src="assets/plugins/bootstrap.js"></script>
     <script src="assets/js/custom.js"></script>
     <script>
+		var check = "<?php echo $check; ?>";
+
         $("#loginButton").click(function () {
-			$("#loginform").submit();
+			if (check != "recovery") $("#loginform").submit();
+			else
+			{
+				if ($("#recoverykey").val() == "")
+					$("#recoveryerror").html("Please enter your password recovery key.");
+				else if ($("#loginpassword").val() != $("#confirmloginpassword").val())
+					$(".confirm-login-password").html("Passwords don't match.");
+				else $("#loginform").submit();
+			}
         });
 
         $("#createButton").click(function () {
@@ -221,7 +282,46 @@ else
                 $(this).val("Password");
         });
 
+		function showRecovery()
+		{
+			$("#logintype").val("recovery");
+			$("#loginpassword").val("");
+			$("#loginpassword").attr("title", "Please enter a new password");
+			$("#loginpassword").attr("data-original-title", "Please enter a new password");
+			$("#passwordlabel").text("New Password:");
+			<?php if ($check != "recovery") { ?>$("#loginpassworderror").text("");<?php } ?>
+			$("#loginButton").html("<h5>Reset Password</h5>");
+			if (!$("#recoverykeyprompt").is(":visible"))
+				$("#recoverykeyprompt").slideDown("slow");
+			if (!$("#loginpasswordprompt").is(":visible"))
+				$("#loginpasswordprompt").slideDown("slow");
+			if ($("#loginStatus").is(":visible"))
+				$("#loginStatus").slideUp("slow");
+		}
+
 		$(document).ready(function () {
+			if (check == "badpassword")
+			{
+				$("#loginStatus").html("<a style='color: white;' href='javascript:showRecovery()'>Forgot your password? Click here</a>");
+				$("#loginStatus").css("color", "<?php echo $_SESSION['websitecolor']['textcolor']; ?>");
+				if (!$("#loginStatus").is(":visible"))
+					$("#loginStatus").slideDown("slow");
+			}
+			else if (check == "recovery")
+			{
+				$("#logintype").val("recovery");
+				$("#loginpassword").attr("title", "Please enter a new password");
+				$("#loginpassword").attr("data-original-title", "Please enter a new password");
+				$("#passwordlabel").text("New Password:");
+				<?php if ($check != "recovery") { ?>$("#loginpassworderror").text("");<?php } ?>
+				$("#loginButton").html("<h5>Reset Password</h5>");
+				if (!$("#recoverykeyprompt").is(":visible"))
+					$("#recoverykeyprompt").slideDown(0);
+				if (!$("#loginpasswordprompt").is(":visible"))
+					$("#loginpasswordprompt").slideDown(0);
+				if ($("#loginStatus").is(":visible"))
+					$("#loginStatus").slideUp(0);
+			}
 			$("input").tooltip();
 			$("html, body, document, documentElement").animate({
 				scrollTop: 0

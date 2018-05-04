@@ -20,6 +20,7 @@ define('WALLET_OPTIMIZER_PATH', 'c:/wamp/wallet-optimizer.exe');
 
 // Website variables
 define("WEBSITE_TITLE", "Web Wallet (TESTNET)");
+define('BLOCK_EXPLORER', 'https://testnet-vico.turtlecoin.ws/blocks/?hash=');
 $footermessage = array(
 	"Turtles are nature's mobile homes.",
 	"1 TRTL = 1 TRTL",
@@ -215,7 +216,7 @@ function attemptLogin($username, $password, &$username_err, &$password_err)
 	$mysql = mysqli_connect(DB_SERVER, DB_USERNAME, DB_PASSWORD, DB_NAME);
     
 	// Prepare a select statement
-	if ($statement = mysqli_prepare($mysql, "SELECT username, password, address FROM users WHERE username = ?"))
+	if ($statement = mysqli_prepare($mysql, "SELECT username, password, address, verified FROM users WHERE username = ?"))
 	{
 		// Bind parameters
 		mysqli_stmt_bind_param($statement, "s", $param_username);
@@ -231,13 +232,14 @@ function attemptLogin($username, $password, &$username_err, &$password_err)
 			if (mysqli_stmt_num_rows($statement) == 1)
 			{                    
 				// Bind result variables
-				mysqli_stmt_bind_result($statement, $username, $hashed_password, $address);
+				mysqli_stmt_bind_result($statement, $username, $hashed_password, $address, $verified);
 				if (mysqli_stmt_fetch($statement))
 				{
 					if (password_verify($password, $hashed_password))
 					{
 						$_SESSION['username'] = $username; 
 						$_SESSION['address'] = $address;
+						$_SESSION['verified'] = $verified;
 						$balance = getBalance($address);
 						$_SESSION['availablebalance'] = $balance["availableBalance"] / 100;
 						$_SESSION['lockedamount'] = $balance["lockedAmount"] / 100;
@@ -361,6 +363,38 @@ function verifyPassword($username, $password)
 	return false;
 }
 
+// Verifies a user password recovery key
+function verifyRecoveryKey($username, $key)
+{
+	$mysql = mysqli_connect(DB_SERVER, DB_USERNAME, DB_PASSWORD, DB_NAME);
+	// Check unhashed key
+	if ($statement = mysqli_prepare($mysql, "SELECT uid FROM users WHERE username = ?"))
+	{
+		mysqli_stmt_bind_param($statement, "s", $param_username);
+		$param_username = $username;
+		if (mysqli_stmt_execute($statement))
+		{
+			mysqli_stmt_store_result($statement);
+			if (mysqli_stmt_num_rows($statement) == 1)
+			{
+				mysqli_stmt_bind_result($statement, $uid);
+				if (mysqli_stmt_fetch($statement))
+				{
+					if ($uid == $key || $uid == password_verify($key, $uid))
+					{
+						mysqli_stmt_close($statement);
+						mysqli_close($mysql);
+						return true;
+					}
+				}
+			}
+		}
+		mysqli_stmt_close($statement);
+	}
+	mysqli_close($mysql);
+	return false;
+}
+
 // Verifies a user password
 function verifyRedeemKey($key)
 {
@@ -437,6 +471,48 @@ function createRedeem($name, $amount, $fee)
 		mysqli_stmt_close($statement);
 	}
 	mysqli_close($mysql);
+}
+
+// Sets a user as verified
+function verifyUser($username)
+{
+	$mysql = mysqli_connect(DB_SERVER, DB_USERNAME, DB_PASSWORD, DB_NAME);
+	if ($statement = mysqli_prepare($mysql, "UPDATE users SET verified = 1, uid = ? WHERE username = ?"))
+	{
+		$hashed_key = password_hash(getUserKey($username), PASSWORD_DEFAULT);
+		mysqli_stmt_bind_param($statement, "ss", $hashed_key, $username);
+		mysqli_stmt_execute($statement);
+		mysqli_stmt_close($statement);
+	}
+	mysqli_close($mysql);
+}
+
+// Gets a user's key from the database
+function getUserKey($username)
+{
+	$mysql = mysqli_connect(DB_SERVER, DB_USERNAME, DB_PASSWORD, DB_NAME);
+	if ($statement = mysqli_prepare($mysql, "SELECT uid FROM users WHERE username = ?"))
+	{
+		mysqli_stmt_bind_param($statement, "s", $param_username);
+		$param_username = $username;
+		if (mysqli_stmt_execute($statement))
+		{
+			mysqli_stmt_store_result($statement);
+			if (mysqli_stmt_num_rows($statement) == 1)
+			{
+				mysqli_stmt_bind_result($statement, $key);
+				if (mysqli_stmt_fetch($statement))
+				{
+					mysqli_stmt_close($statement);
+					mysqli_close($mysql);
+					return $key;
+				}
+			}
+		}
+		mysqli_stmt_close($statement);
+	}
+	mysqli_close($mysql);
+	return "";
 }
 
 /*************************************/

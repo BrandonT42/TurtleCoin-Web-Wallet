@@ -7,6 +7,10 @@ if (!isset($_SESSION['username']) || empty($_SESSION['username'])) {
 	header("location: login.php");
 	exit;
 }
+elseif (!isset($_SESSION['verified']) || $_SESSION['verified'] != true) {
+	header("location: verify.php");
+	exit;
+}
 else
 {
 	// Define variables and initialize with empty values
