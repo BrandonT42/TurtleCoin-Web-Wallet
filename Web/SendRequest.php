@@ -26,6 +26,18 @@ elseif ($_SERVER["REQUEST_METHOD"] == "POST")
 		);
 		echo json_encode($result);
 	}
+	elseif ($_POST["method"] == "quickOptimize")
+	{
+		$result = array(
+			'success' => quickOptimizeAddress($_SESSION['address'])
+		);
+		echo json_encode($result);
+	}
+	elseif ($_POST["method"] == "fullOptimize")
+	{
+		fullOptimizeAddress($_SESSION['address']);
+		echo "{}";
+	}
 	else echo '{"error":{"message":"bad request"}}';
 }
 else echo '{"error":{"message":"bad request"}}';

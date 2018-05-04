@@ -139,8 +139,38 @@ else
     </section>
     <!-- End General Section -->
 
+    <!-- Optimization Section-->
+    <section class="for-full-back color-light" id="optimizationsettings">
+        <div class="container">
+
+			<div class="row space-pad"></div>
+
+            <div class="row text-center">
+                <div class="col-md-8 col-md-offset-2">
+                    <h1>OPTIMIZATION</h1>
+                    <h2 class="description-blob">
+                        Optimizing your wallet through fusion cleans it up internally, allowing you to send more TRTL at once, and have an overall smoother experience.
+                    </h2><br>
+					<h5 style="color:red;">
+						
+						Please note that the fusion process can take anywhere between a few minutes to a few hours to complete, depending on how long it's been since you last optimized, as well as how many transactions you have received since then.
+					</h5>
+                </div>
+            </div>
+
+			<div class="row text-center alert-message" id="optimizationStatus"></div>
+
+            <div class="row  text-center">
+                <a id="quickOptimizeButton" class="btn btn-primary" style="width: 250px"><h5>Quick Optimize</h5></a>
+                <a id="fullOptimizeButton" class="btn btn-primary" style="width: 250px"><h5>Full Optimize</h5></a>
+            </div>
+
+        </div>
+    </section>
+    <!-- End Optimization Section -->
+
     <!-- Password Section-->
-    <section class="for-full-back color-light" id="passwordsettings">
+    <section class="for-full-back color-dark" id="passwordsettings">
         <div class="container">
 
 			<div class="row space-pad"></div>
@@ -197,6 +227,51 @@ else
 			if ($("#newpassword").val() != $("#confirmpassword").val())
 				$(".confirm-password").html("Passwords don't match.");
             else $("#passwordform").submit();
+        });
+
+		$("#quickOptimizeButton").click(function () {
+			$("#optimizationStatus").html("Attempting quick optimization...");
+			$("#optimizationStatus").css("color", "<?php echo $_SESSION['websitecolor']['textcolor']; ?>");
+			if (!$("#optimizationStatus").is(":visible"))
+				$("#optimizationStatus").slideDown("slow");
+			$.post(
+                "sendrequest.php",
+                {
+                    method: 'quickOptimize'
+                },
+                function (data) {
+					console.log(data);
+					data = JSON.parse(data);
+					if (data.success)
+					{
+						$("#optimizationStatus").html("Wallet has been fused one time");
+						$("#optimizationStatus").css("color", "<?php echo $_SESSION['websitecolor']['highlight']; ?>");
+						if (!$("#optimizationStatus").is(":visible"))
+							$("#optimizationStatus").slideDown("slow");
+					}
+					else
+					{
+						$("#optimizationStatus").html("Wallet is already optimized");
+						$("#optimizationStatus").css("color", "red");
+						if (!$("#optimizationStatus").is(":visible"))
+							$("#optimizationStatus").slideDown("slow");
+					}
+				}
+			);
+        });
+
+		$("#fullOptimizeButton").click(function () {
+			$.post(
+                "sendrequest.php",
+                {
+                    method: 'fullOptimize'
+                },
+				function (data) { }
+			);
+			$("#optimizationStatus").html("Full wallet optimization has begun");
+			$("#optimizationStatus").css("color", "<?php echo $_SESSION['websitecolor']['highlight']; ?>");
+			if (!$("#optimizationStatus").is(":visible"))
+				$("#optimizationStatus").slideDown("slow");
         });
 
 		$(document).ready(function () {

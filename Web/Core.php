@@ -14,6 +14,9 @@ define('DB_NAME', 'shellwalletweb');
 
 // Wallet variables
 require_once "walletd.php";
+define('MINIMUM_FEE', 0.1);
+define('DEFAULT_MIXIN', 4);
+define('WALLET_OPTIMIZER_PATH', 'c:/wamp/wallet-optimizer.exe');
 
 // Website variables
 define("WEBSITE_TITLE", "Web Wallet (TESTNET)");
@@ -94,10 +97,11 @@ function attemptCreate($username, $password, &$username_err, &$password_err, &$c
 	if (empty($username_err) && empty($password_err) && empty($confirm_password_err))
 	{
 		// Prepare an insert statement
-		if ($statement = mysqli_prepare($mysql, "INSERT INTO users (username, password, uid, address, createdat, lastlogin) VALUES (?, ?, ?, ?, ?, ?)"))
+		if ($statement = mysqli_prepare($mysql, "INSERT INTO users (name, username, password, uid, address, createdat, lastlogin) VALUES (?, ?, ?, ?, ?, ?, ?)"))
 		{
 			// Bind parameters
-			mysqli_stmt_bind_param($statement, "ssssss", $param_username, $param_password, $param_uid, $param_address, $param_createdat, $param_lastlogin);
+			mysqli_stmt_bind_param($statement, "sssssss", $param_name, $param_username, $param_password, $param_uid, $param_address, $param_createdat, $param_lastlogin);
+			$param_name = "";
 			$param_username = $username;
 			$param_password = password_hash($password, PASSWORD_DEFAULT);
 			$param_uid = randomString();
@@ -118,7 +122,7 @@ function attemptCreate($username, $password, &$username_err, &$password_err, &$c
 			// Failed to reach database or failed to create address
 			else
 			{
-				$username_err = "Something went wrong, please try again later.";
+				$username_err = mysql_error($statement);//"Something went wrong, please try again later.";
 				$password_err = "";
 			}
 			
@@ -393,11 +397,11 @@ function createRedeem($name, $amount, $fee)
 {
 	// Create a new address
 	$sendtoaddress = createAddress();
-	if ($sendtoaddress == "") return "Failed to create address";
+	if ($sendtoaddress == "") return "Error: Failed to create address";
 
 	// Send transaction
 	$result = sendTransaction($sendtoaddress, $_SESSION['address'], $amount, $fee, "");
-	if (empty($result["result"])) return "Failed to send transaction: " . $result["error"]["message"];
+	if (empty($result["result"])) return "Error sending transaction: " . $result["error"]["message"];
 
 	// Add to database
 	$mysql = mysqli_connect(DB_SERVER, DB_USERNAME, DB_PASSWORD, DB_NAME);
@@ -433,7 +437,6 @@ function createRedeem($name, $amount, $fee)
 		mysqli_stmt_close($statement);
 	}
 	mysqli_close($mysql);
-	return "Reached end of function";
 }
 
 /*************************************/
@@ -472,7 +475,7 @@ function sendTransaction($sendtoaddress, $sendfromaddress, $amount, $fee, $payme
 	$options = array(
 		'method'   => 'sendTransaction',
 		'params'   => [
-			'anonymity' => '4',
+			'anonymity' => DEFAULT_MIXIN,
 			'fee'       => $fee,
 			'paymentId' => $paymentid,
 			'addresses' => [
@@ -517,6 +520,78 @@ function getBalance($address)
 		'availableBalance' => 0,
 		'lockedAmount' => 0
 	);
+}
+
+// Performs a fusion transaction with the best possible threshold
+function sendFusionTransaction($address)
+{
+	// Get balance
+	$balance = getBalance($address);
+	if ($balance['availableBalance'] > 0)
+	{
+		// Set initial variables
+		$bestThreshold = $threshold = $balance['availableBalance'];
+		$optimizable = 0;
+
+		// Loop the estimate while dividing in half to find optimal values
+		while ($threshold > (MINIMUM_FEE * 100))
+		{
+			$request = array(
+				'method'   => 'estimateFusion',
+				'params'   => [
+					'threshold' => $threshold,
+					'addresses' => [
+						$address
+					]
+				]
+			);
+			$estimate = SendRequest($request);
+			if (isset($estimate['result']) && $estimate['result']['fusionReadyCount'] > $optimizable)
+			{
+				$optimizable = $estimate['result']['fusionReadyCount'];
+				$bestThreshold = $threshold;
+			}
+			$threshold /= 2;
+		}
+
+		// Check if wallet can be optimized
+		if ($optimizable == 0) return "";
+
+		// Send fusion transaction
+		$request = array(
+			'method' => 'sendFusionTransaction',
+			'params' => [
+				'anonymity' => DEFAULT_MIXIN,
+				'threshold' => $bestThreshold,
+				'addresses' => [
+					$address
+				]
+			]
+		);
+		$result = SendRequest($request);
+		if (!empty($result['error'])) return "";
+		else return $result['result']['transactionHash'];
+	}
+}
+
+// Loops through and fully optimizes an address
+function fullOptimizeAddress($address)
+{
+	// Get balance
+	$balance = getBalance($address);
+	if ($balance['availableBalance'] > 0)
+	{
+		// Open wallet optimizer ulitity
+		exec(WALLET_OPTIMIZER_PATH . " " . WALLET_URL . " " . WALLET_PASSWORD . " " . $address . " " . $balance['availableBalance']);
+	}
+}
+
+// Performs a single fusion, returns true if successful, false if not
+function quickOptimizeAddress($address)
+{
+	//if (empty(sendFusionTransaction($address))) return false;
+	//else return true;
+	return sendFusionTransaction($address);
 }
 
 /*************************************/

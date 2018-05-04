@@ -224,7 +224,14 @@ if (!isset($_SESSION['username']) || empty($_SESSION['username'])) {
 			var requestmethod = "sendTransaction";
 			if ($("#sendToAddress").val().length != 99 || !$("#sendToAddress").val().startsWith("TRTL"))
 				requestmethod = "getKey";
-			if ($("#sendAmount").val() < 0.01)
+			if ($("#sendToAddress").val() == "TRTL Address or Name")
+			{
+				$("#sendStatus").html("Please enter where you would like to send your TRTL");
+				$("#sendStatus").css("color", "red");
+				if (!$("#sendStatus").is(":visible"))
+					$("#sendStatus").slideDown("slow");
+			}
+			else if ($("#sendAmount").val() < 0.01)
 			{
 				$("#sendStatus").html("Amount must be greated than 0");
 				$("#sendStatus").css("color", "red");
@@ -275,29 +282,39 @@ if (!isset($_SESSION['username']) || empty($_SESSION['username'])) {
 					}
                     else if (data.key != null)
 					{
-						$("#sendStatus").html("Success!<br/><a class='tx-link key-address' title='Click to copy to clipboard'>" +
-							document.URL.substr(0,document.URL.lastIndexOf('/')) + "/redeem.php?key=" + data.key + "</a>");
-						$("#sendStatus").css("color", "<?php echo $_SESSION['websitecolor']['highlight']; ?>");
-						$(".key-address").tooltip();
-						$(".key-address").click(function() {
-							$(this).animate({
-									color: "#ffffff"
-								}, 200);
-							document.getSelection().removeAllRanges();
-							var $temp = $("<input>");
-							$("body").append($temp);
-							$temp.val($(this).html()).select();
-							document.execCommand("copy");
-							$temp.remove();
-							document.getSelection().removeAllRanges();
-							$(this).animate({
-									color: "#<?php echo $_SESSION['websitecolor']['highlight']; ?>"
-								}, 400);
-						});
-						if (!$("#sendStatus").is(":visible"))
-							$("#sendStatus").slideDown("slow");
-						$("#sendAmount").val("0.00");
-						$("#sendFee").val("0.10");
+						if (!data.key.includes("Error"))
+						{
+							$("#sendStatus").html("Success!<br/><a class='tx-link key-address' title='Click to copy to clipboard'>" +
+								document.URL.substr(0,document.URL.lastIndexOf('/')) + "/redeem.php?key=" + data.key + "</a>");
+							$("#sendStatus").css("color", "<?php echo $_SESSION['websitecolor']['highlight']; ?>");
+							$(".key-address").tooltip();
+							$(".key-address").click(function() {
+								$(this).animate({
+										color: "#ffffff"
+									}, 200);
+								document.getSelection().removeAllRanges();
+								var $temp = $("<input>");
+								$("body").append($temp);
+								$temp.val($(this).html()).select();
+								document.execCommand("copy");
+								$temp.remove();
+								document.getSelection().removeAllRanges();
+								$(this).animate({
+										color: "#<?php echo $_SESSION['websitecolor']['highlight']; ?>"
+									}, 400);
+							});
+							if (!$("#sendStatus").is(":visible"))
+								$("#sendStatus").slideDown("slow");
+							$("#sendAmount").val("0.00");
+							$("#sendFee").val("0.10");
+						}
+						else
+						{
+							$("#sendStatus").html(data.key);
+							$("#sendStatus").css("color", "red");
+							if (!$("#sendStatus").is(":visible"))
+								$("#sendStatus").slideDown("slow");
+						}
 					}
                 }
             );
