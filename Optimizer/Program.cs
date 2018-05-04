@@ -21,7 +21,6 @@ namespace Wallet_Optimizer
             if (!address.StartsWith("TRTL")) return;
             else if (address.Length != 99) return;
             else optimizeAddess(address);
-            Console.ReadKey();
         }
 
         static string sendFusionTransaction(string address)
