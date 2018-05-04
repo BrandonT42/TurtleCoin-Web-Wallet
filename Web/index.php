@@ -1,10 +1,13 @@
 ﻿<?php
 require_once "core.php";
 
+$_SESSION['LAST_ACTIVITY'] = time();
+
 if (!isset($_SESSION['username']) || empty($_SESSION['username'])) {
 	header("location: login.php");
 	exit;
 }
+
 elseif (!isset($_SESSION['verified']) || $_SESSION['verified'] != true) {
 	header("location: verify.php");
 	exit;

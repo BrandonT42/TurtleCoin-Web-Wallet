@@ -1,7 +1,4 @@
 <?php
-// Begin a session
-session_start();
-
 /*************************************/
 /*** DEFINED VARIABLES ***************/
 /*************************************/
@@ -17,6 +14,10 @@ require_once "walletd.php";
 define('MINIMUM_FEE', 0.1);
 define('DEFAULT_MIXIN', 4);
 define('WALLET_OPTIMIZER_PATH', 'c:/wamp/wallet-optimizer.exe');
+
+// Security variables
+define('SESSION_TIMEOUT', 600); // 10 minutes
+define('REGENERATION_TIMEOUT', 180); // 3 minutes
 
 // Website variables
 define("WEBSITE_TITLE", "Web Wallet (TESTNET)");
@@ -58,6 +59,30 @@ $websitecolors = array(
 );
 if (empty($_SESSION['websitecolor']))
 	$_SESSION['websitecolor'] = $websitecolors["dark"];
+
+/*************************************/
+/*** SESSION CONTROL *****************/
+/*************************************/
+
+// Begin a session
+session_start();
+
+// Regenerate cookie id if regenerate timeout has elapsed
+if (!isset($_SESSION['LAST_REGEN'])) $_SESSION['LAST_REGEN'] = time();
+elseif (time() - $_SESSION['LAST_REGEN'] > REGENERATION_TIMEOUT)
+{
+    session_regenerate_id(true);
+    $_SESSION['LAST_REGEN'] = time();
+}
+
+// Destroy session if session timeout has elapsed
+if (!isset($_SESSION['LAST_ACTIVITY'])) $_SESSION['LAST_ACTIVITY'] = time();
+elseif (time() - $_SESSION['LAST_ACTIVITY'] > SESSION_TIMEOUT)
+{
+	session_unset();
+    session_destroy();
+    $_SESSION['LAST_ACTIVITY'] = time();
+}
 
 /*************************************/
 /*** DATABASE FUNCTIONS **************/
@@ -116,7 +141,8 @@ function attemptCreate($username, $password, &$username_err, &$password_err, &$c
 				$_SESSION["username"] = $username; 
 				$_SESSION["address"] = $param_address;
 				$_SESSION["availablebalance"] = 0.0;
-				$_SESSION["lockedamount"] = 0.0; 
+				$_SESSION["lockedamount"] = 0.0;
+				$_SESSION['LAST_ACTIVITY'] = time();
 				header("location: index.php");
 			}
 
@@ -188,8 +214,10 @@ function attemptRedeem($key, $username, $password, &$username_err, &$password_er
 			{
 				$_SESSION["username"] = $username;
 				$_SESSION["address"] = getUserAddress($username);
-				$_SESSION["availablebalance"] = 0.0;
-				$_SESSION["lockedamount"] = 0.0;
+				$balance = getBalance($address);
+				$_SESSION['availablebalance'] = $balance["availableBalance"] / 100;
+				$_SESSION['lockedamount'] = $balance["lockedAmount"] / 100;
+				$_SESSION['LAST_ACTIVITY'] = time();
 				header("location: index.php");
 			}
 
@@ -244,6 +272,7 @@ function attemptLogin($username, $password, &$username_err, &$password_err)
 						$_SESSION['availablebalance'] = $balance["availableBalance"] / 100;
 						$_SESSION['lockedamount'] = $balance["lockedAmount"] / 100;
 						updateLastLogin($username);
+						$_SESSION['LAST_ACTIVITY'] = time();
 						header("location: index.php");
 					}
 
@@ -429,6 +458,7 @@ function verifyRedeemKey($key)
 // Creates a redeemable key
 function createRedeem($name, $amount, $fee)
 {
+	$_SESSION['LAST_ACTIVITY'] = time();
 	// Create a new address
 	$sendtoaddress = createAddress();
 	if ($sendtoaddress == "") return "Error: Failed to create address";
@@ -548,6 +578,7 @@ function SendRequest($Request)
 // Sends a transaction
 function sendTransaction($sendtoaddress, $sendfromaddress, $amount, $fee, $paymentid)
 {
+	$_SESSION['LAST_ACTIVITY'] = time();
 	$options = array(
 		'method'   => 'sendTransaction',
 		'params'   => [
@@ -601,6 +632,7 @@ function getBalance($address)
 // Performs a fusion transaction with the best possible threshold
 function sendFusionTransaction($address)
 {
+	$_SESSION['LAST_ACTIVITY'] = time();
 	// Get balance
 	$balance = getBalance($address);
 	if ($balance['availableBalance'] > 0)
@@ -653,6 +685,7 @@ function sendFusionTransaction($address)
 // Loops through and fully optimizes an address
 function fullOptimizeAddress($address)
 {
+	$_SESSION['LAST_ACTIVITY'] = time();
 	// Get balance
 	$balance = getBalance($address);
 	if ($balance['availableBalance'] > 0)
