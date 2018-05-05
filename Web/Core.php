@@ -89,7 +89,7 @@ if (empty($_SESSION['websitecolor']))
 function resetSession()
 {
 	session_unset();
-	setcookie("PHPSESSID",session_id(), "", time() - 3600);
+	setcookie("PHPSESSID", session_id(), time() - 3600);
     session_destroy();
 }
 
