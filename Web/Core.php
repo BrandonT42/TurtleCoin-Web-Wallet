@@ -57,8 +57,6 @@ $websitecolors = array(
 		"disabled"       => "#c1c1c1"
 	)
 );
-if (empty($_SESSION['websitecolor']))
-	$_SESSION['websitecolor'] = $websitecolors["dark"];
 
 /*************************************/
 /*** SESSION CONTROL *****************/
@@ -79,9 +77,20 @@ elseif (time() - $_SESSION['LAST_REGEN'] > REGENERATION_TIMEOUT)
 if (!isset($_SESSION['LAST_ACTIVITY'])) $_SESSION['LAST_ACTIVITY'] = time();
 elseif (time() - $_SESSION['LAST_ACTIVITY'] > SESSION_TIMEOUT)
 {
-	session_unset();
-    session_destroy();
+	resetSession();
     $_SESSION['LAST_ACTIVITY'] = time();
+}
+
+// Set default website colors
+if (empty($_SESSION['websitecolor']))
+	$_SESSION['websitecolor'] = $websitecolors["dark"];
+
+// Resets and destroys a session
+function resetSession()
+{
+	session_unset();
+	setcookie(session_id(), "", time() - 3600);
+    session_destroy();
 }
 
 /*************************************/

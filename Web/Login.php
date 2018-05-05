@@ -143,7 +143,7 @@ else
             </div>
         </div>
     </nav>
-    <!--End Navigation -->
+    !-- End Navigation -->
 
     <!-- Login Section-->
     <section class="for-full-back color-dark" id="login">
